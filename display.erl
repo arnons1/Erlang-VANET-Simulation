@@ -3,7 +3,7 @@
 
 -include_lib("wx/include/wx.hrl").
 -define(SCREEN_X,(800)).
--define(SCREEN_Y,(600)).
+-define(SCREEN_Y,(700)).
 -define(INTERLANE_OFFSET,(10)).
 -define(SCREEN_OFFSET,(30)).
   
