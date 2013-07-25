@@ -2,7 +2,7 @@
 -compile(export_all).
 
 -include_lib("wx/include/wx.hrl").
--define(SCREEN_X,(800)).
+-define(SCREEN_X,(820)). % For testing git
 -define(SCREEN_Y,(700)).
 -define(INTERLANE_OFFSET,(10)).
 -define(SCREEN_OFFSET,(30)).
