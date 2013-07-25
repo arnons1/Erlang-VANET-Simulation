@@ -7,7 +7,7 @@
 -define(INTERLANE_OFFSET,(10)).
 -define(SCREEN_OFFSET,(30)).
   
-%% Creeates the window and menus etc.
+%% Creates the window and menus etc.
 start(ControlPid, IsRight, NumOfLanes)	->
     Wx = wx:new(),
 	Frame = wxFrame:new(Wx, -1, "Vehicles! HOLY CRAP", [{size, {?SCREEN_X, ?SCREEN_Y}},{pos,{20,20}}]),
@@ -138,19 +138,3 @@ draw_circle(Panel,X,Y,Radius)    ->
 draw_rectangle(Panel,Paint,Brush,X,Y,LaneWidth)        ->
 	wxDC:drawRectangle(Paint,{X,Y},{?SCREEN_X,LaneWidth}),  % Draw square.
 	Y-(LaneWidth div 2).
-
-%% No click in a circle, return OK
-findCircles(_,_,[],_)            ->
-    ok;
-
-%% Hunt for X,Y in a specific distance - using euclidean distance
-findCircles(X,Y,[H|T],Panel)     ->
-    {Xc,Yc,Rc}=H,
-    Dist = math:sqrt(math:pow((X-Xc),2)+math:pow((Y-Yc),2)), % Calculate distance from first element
-    if 
-	Dist=<Rc ->
-	    D = wxMessageDialog:new (Panel, "Hello"), % Is in the distance - show a message
-	    wxMessageDialog:showModal(D);
-	true ->
-	    findCircles(X,Y,T,Panel) % Not in the distance, keep looking
-    end.
