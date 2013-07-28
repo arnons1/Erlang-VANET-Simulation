@@ -2,10 +2,10 @@
 -compile(export_all).
 
 -define(RV_RANGE,30).
--define(ROADLEN,150).
+-define(ROADLEN,1600).
 -define(NUM_LANES,4).
 -define(CRAZY_PROB,0.2).
--define(LANE_PROB,0.1).
+-define(LANE_PROB,0.0).
 -define(MAX_BRAKING_TIMESLOTS,5).
 -define(BRAKING_SPEED,50).
 
@@ -42,6 +42,9 @@ avMain(X,Y,RvPid,ControlPid) ->
 
 	{av_range,true} -> % Reply from RV - we're in range, yay.
 	    avMain(X,Y,RvPid,ControlPid);
+
+	{av_are_you_in_range, FromWho} -> % Tell control if we're in range of an RV or not
+		FromWho ! {av_range_response, self(), is_pid(RvPid)}; 
 
 	{av_incoming_event,EventX} ->
 	    % Check if our X is larger than the EventX - because that means we're going to be impacted by it (ahead of us)
@@ -227,6 +230,7 @@ control(ListOfRVs) ->
 	    [ sendUpdatesToLane(list_to_atom("lane"++[48+Id]),ets:first(list_to_atom("lane"++[48+Id]))) || Id <- lists:seq(1,?NUM_LANES) ], % Send messages to cars
 %	    io:format("~nSizes:~n"),
 %	    [ io:format("~w  | ",[lists:nth(6,ets:info(list_to_atom("lane"++[48+B])))]) || B<- lists:seq(1,4) ],
+	    [ io:format("~w~n::::::::::::::~n",[ets:tab2list(list_to_atom("lane"++[48+B]))]) || B<- lists:seq(1,4) ],
 	    
 	    
 	    control()  % Will go and pull out the list of RVs again and start over.
