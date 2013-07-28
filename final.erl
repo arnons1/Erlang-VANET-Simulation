@@ -1,7 +1,7 @@
 -module(final).
 -compile(export_all).
 
--define(RV_RANGE,30).
+-define(RV_RANGE,500).
 -define(ROADLEN,1600).
 -define(NUM_LANES,4).
 -define(CRAZY_PROB,0.2).
@@ -44,7 +44,8 @@ avMain(X,Y,RvPid,ControlPid) ->
 	    avMain(X,Y,RvPid,ControlPid);
 
 	{av_are_you_in_range, FromWho} -> % Tell control if we're in range of an RV or not
-		FromWho ! {av_range_response, self(), is_pid(RvPid)}; 
+	    FromWho ! {av_range_response, self(), is_pid(RvPid)},
+	    avMain(X,Y,RvPid,ControlPid); 
 
 	{av_incoming_event,EventX} ->
 	    % Check if our X is larger than the EventX - because that means we're going to be impacted by it (ahead of us)
@@ -374,40 +375,48 @@ relocateByX(Lane,NumOfCarsInLane,CurrentCar) ->
     Prev = ets:prev(list_to_atom("lane"++[48+Lane]),A), % This is the car ahead of us
     NewPrev = case Prev of
 	'$end_of_table' -> 
-		      TachlesX = ProposedX,
-		      ets:last(list_to_atom("lane"++[48+Lane])); % Assign left-most car to NewPrev
+		      case ProposedX>A of
+			  true -> % We have done a modulu
+			      ets:last(list_to_atom("lane"++[48+Lane])); % Assign left-most car to NewPrev
+			  false -> % No modulu.
+			      -1 % -1 means we will never crash :S
+		      end;
 		  _ -> 
-		      case A=<ProposedX of % Modulu maybe?
-			  true -> TachlesX = ProposedX-?ROADLEN; % Give negative location on road for calculating things (cancel modulu)
-			  false -> TachlesX = ProposedX % No need to change anything
-		      end,
 		      Prev % Assign previous to NewPrev
     end,
-    if
-	TachlesX =< NewPrev -> % Crash - we tried to overtake a vehicle
-	    NewX = case NewPrev+1>=?ROADLEN of
-		       true -> 0;
-		       false -> NewPrev+1
-		   end,
-	    NewSpeed = ?BRAKING_SPEED,
-	    NewSlot = ?MAX_BRAKING_TIMESLOTS,
+    case NumOfCarsInLane<2 of
+	true -> 
+	    % We are the only car on the road. Assign new location and exit this method.
 	    ets:delete(list_to_atom("lane"++[48+Lane]),A),
-%	    io:format("Y~w: Curr: ~w->~w | Prev: ~w ~n",[Lane,A,NewX,NewPrev]),
-	    case doesPosExist(NewX,Lane) of
-		true -> io:format("Fuuuuuuck1~n");
-		false -> ok
+	    ets:insert(list_to_atom("lane"++[48+Lane]),{ProposedX,Lane,C,D,E,ProposedSlot,ProposedSpeed});	    
+	false -> 
+	    % More than one car on the road - check for crashes
+	    if
+		ProposedX =< NewPrev -> % We overtook a car (crashed)
+		    NewX = case NewPrev+1 > ?ROADLEN of % Check if the modulu operation allows us to enter at this location
+			       true -> 0; % Enter one before NewPrev
+			       false -> NewPrev+1
+			   end,
+		    NewSpeed = ?BRAKING_SPEED,
+		    NewSlot = ?MAX_BRAKING_TIMESLOTS,
+		    ets:delete(list_to_atom("lane"++[48+Lane]),A),
+						%	    io:format("Y~w: Curr: ~w->~w | Prev: ~w ~n",[Lane,A,NewX,NewPrev]),
+		    case doesPosExist(NewX,Lane) of
+			true -> io:format("Fuuuuuuck1~n");
+			false -> ok
+		    end,
+		    ets:insert(list_to_atom("lane"++[48+Lane]),{NewX,Lane,C,D,E,NewSlot,NewSpeed});
+		true ->  % No crash
+		    ets:delete(list_to_atom("lane"++[48+Lane]),A),
+		    case doesPosExist(ProposedX,Lane) of
+			true -> NewX = ProposedX+1,
+				io:format("Fuuuuuuck2~n");
+			false -> NewX=ProposedX
+		    end,
+		    ets:insert(list_to_atom("lane"++[48+Lane]),{NewX,Lane,C,D,E,ProposedSlot,ProposedSpeed})
 	    end,
-	    ets:insert(list_to_atom("lane"++[48+Lane]),{NewX,Lane,C,D,E,NewSlot,NewSpeed});
-	true ->  % No crash
-%	    io:format("N~w: Curr: ~w->~w | Prev: ~w ~n",[Lane,A,TachlesX,NewPrev]),
-	    ets:delete(list_to_atom("lane"++[48+Lane]),A),
-	    case doesPosExist(TachlesX,Lane) of
-		true -> io:format("Fuuuuuuck2~n");
-		false -> ok
-	    end,
-	    ets:insert(list_to_atom("lane"++[48+Lane]),{TachlesX,Lane,C,D,E,ProposedSlot,ProposedSpeed})
-    end,
-    relocateByX(Lane,NumOfCarsInLane-1,Next).
+	    relocateByX(Lane,NumOfCarsInLane-1,Next)
+    end.
 
 giveNewX(OldX,_Speed,IsCrazy,BrakingWindow) ->
     if
@@ -422,7 +431,7 @@ giveNewX(OldX,_Speed,IsCrazy,BrakingWindow) ->
 		    end,
 	    NewSpeed = 110 + Delta % New speed +- delta
     end,
-    NewX = modulo(erlang:trunc(OldX - NewSpeed/(3.6)), ?ROADLEN), % New location modulu roadlength
+	NewX = modulo(erlang:trunc(OldX - NewSpeed/(3.6)), ?ROADLEN), % New location modulu roadlength
     {NewX,NewSpeed,NewSlot}.
 
 %%  _    _ ______ _      _____  ______ _____    ______ _    _ _   _  _____ 

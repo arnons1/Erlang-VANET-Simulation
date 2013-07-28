@@ -60,8 +60,6 @@ loop(Frame,Panel,ControlPid,IsRight,NumOfLanes,Middles) ->
 		300 -> 
 		    wxPanel:destroy(Panel),
 		    NewPanel = wxPanel:new(Frame),
-		    wxFrame:update(Frame),
-		    wxFrame:refresh(Frame),
 		    OnPaint1 = fun(_Evt, _Obj) ->
 				       Paint = wxPaintDC:new(NewPanel),
 				       Brush = wxBrush:new(),
@@ -126,9 +124,6 @@ loop(Frame,Panel,ControlPid,IsRight,NumOfLanes,Middles) ->
 	{display_response,TheList} -> % Response from the control unit
     	    io:format("TheList:~w~n",[TheList]),
 	    parseControlListAndDrawCars(TheList,IsRight,Middles,Panel),
-	    loop(Frame,Panel,ControlPid,IsRight,NumOfLanes,Middles);
-	Msg -> % Anything else
-	    io:format("loop default triggered: Got ~n ~p ~n", [Msg]),
 	    loop(Frame,Panel,ControlPid,IsRight,NumOfLanes,Middles)
     after ?REFRESH_PERIOD ->
 	    self() ! {0,300,0,0,0},
@@ -138,16 +133,19 @@ loop(Frame,Panel,ControlPid,IsRight,NumOfLanes,Middles) ->
     end.
 
 parseControlListAndDrawCars([],_,_,_) ->
+    io:format("ParseControl finished~n~n"),
     ok;
 parseControlListAndDrawCars([H|T],IsRight,Middles,Panel) ->
+    io:format("ParseControl got ~w~n",[H]),
     {X,Y,Pid,IsRV,_IsCrazy,Timeslot,_Speed} = H,
-    case IsRV of
-	true -> Type=rv;
+    Type = case IsRV of
+	true -> rv;
 	false ->
 	    case Timeslot>0 of
-		true -> Type=av_braking;
+		true -> 
+		    av_braking;
 		false ->
-		    Type = checkRange(Pid)
+		    checkRange(Pid)
 	    end
     end,
     io:format("Putting a ~w at ~w ~w~n",[Type,meterToPixel(X,IsRight),lists:nth(Y,Middles)]),
@@ -164,9 +162,11 @@ meterToPixel(Meters,IsRight) -> %% Converts meters to pixels depending on the ri
     end.
 
 checkRange(Pid) ->
+    io:format("Gonna ask for range~n"),
     Pid ! {av_are_you_in_range, self()},
     receive
 	{av_range_response,_,Response} ->
+	    io:format("Got range ~w~n",[Response]),
 	    case Response of
 		true -> av_reg;
 		false -> av_outofrange
@@ -212,20 +212,4 @@ draw_rectangle(Panel,Paint,Brush,X,Y,LaneWidth)        ->
 
 
 getMiddle(Y,LaneWidth) ->
-    Y-(LaneWidth div 2).
-
-%% No click in a circle, return OK
-findCircles(_,_,[],_)            ->
-    ok;
-
-%% Hunt for X,Y in a specific distance - using euclidean distance
-findCircles(X,Y,[H|T],Panel)     ->
-    {Xc,Yc,Rc}=H,
-    Dist = math:sqrt(math:pow((X-Xc),2)+math:pow((Y-Yc),2)), % Calculate distance from first element
-    if 
-	Dist=<Rc ->
-	    D = wxMessageDialog:new (Panel, "Hello"), % Is in the distance - show a message
-	    wxMessageDialog:showModal(D);
-	true ->
-	    findCircles(X,Y,T,Panel) % Not in the distance, keep looking
-    end.
+    Y+(LaneWidth div 2).
