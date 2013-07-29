@@ -224,7 +224,7 @@ control(ListOfRVs) ->
 	    TheList = lists:flatten([ gibLane(B,IsRight) || B <- lists:seq(1,?NUM_LANES) ]),
 	    Pid ! {display_response,TheList},
 	    control(ListOfRVs)
-    after 1000 -> % Relocate vehicles
+    after 300 -> % Relocate vehicles
 	    [ relocateVehiclesInLaneByX(Id) || Id <- lists:seq(1,?NUM_LANES) ], % Move X
 	    [ relocateVehiclesInLaneByY(Id) || Id <- lists:seq(1,?NUM_LANES) ], % Move Y
 	    [ updateALanesYValues(Id) || Id <- lists:seq(1,?NUM_LANES) ], % Update lane Y values

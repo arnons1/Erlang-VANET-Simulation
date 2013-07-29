@@ -70,7 +70,7 @@ loop(Frame,Panel,ControlPid,IsRight,NumOfLanes,Middles) ->
 	    case length(Res)>0 of
 		true ->	
 		    {A,B,C,D,E,F,G} = hd(Res),
-		    Message = io_lib:fwrite("Car PID: ~w~nCrazy: ~w~nIs it an RV? ~w~nBraking timeslots left: ~w~nSpeed: ~w", [C,E,D,F,G]),
+		    Message = io_lib:fwrite("{X,Y}=~w,~w~n~n-------------~nCar PID: ~w~nCrazy: ~w~nIs it an RV? ~w~nBraking timeslots left: ~w~nSpeed: ~w", [A,B,C,E,D,F,G]),
 		    Modal = wxMessageDialog:new (Panel, Message),
 		    wxMessageDialog:showModal(Modal),
 		    loop(Frame,Panel,ControlPid,IsRight,NumOfLanes,Middles);
