@@ -143,7 +143,7 @@ loop(Frame,Panel,ControlPid,IsRight,NumOfLanes,Middles) ->
 	    loop(Frame,Panel,ControlPid,IsRight,NumOfLanes,Middles);
 	{display_response,TheList} -> % Response from the control unit
 	    ets:delete_all_objects(cardb),
-	    io:format("Got this list for IsRight ~w: ~n~n~w~n~:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::~n",[IsRight,TheList]),
+	    io:format("Got this list for IsRight ~w: ~n~n~w~n:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::~n",[IsRight,TheList]),
 	    parseControlListAndDrawCars(TheList,IsRight,Middles,Panel),
 	    loop(Frame,Panel,ControlPid,IsRight,NumOfLanes,Middles)
     after ?REFRESH_PERIOD ->

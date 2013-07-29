@@ -3,9 +3,9 @@
 
 -define(RV_RANGE,500).
 -define(ROADLEN,1600).
--define(NUM_LANES,8).
+-define(NUM_LANES,4).
 -define(CRAZY_PROB,0.2).
--define(LANE_PROB,0.01).
+-define(LANE_PROB,0.00).
 -define(MAX_BRAKING_TIMESLOTS,5).
 -define(BRAKING_SPEED,50).
 
@@ -230,8 +230,8 @@ control(ListOfRVs) ->
 	    [ updateALanesYValues(Id) || Id <- lists:seq(1,?NUM_LANES) ], % Update lane Y values
 	    [ sendUpdatesToLane(list_to_atom("lane"++[48+Id]),ets:first(list_to_atom("lane"++[48+Id]))) || Id <- lists:seq(1,?NUM_LANES) ], % Send messages to cars
 %	    io:format("~nSizes:~n"),
-%	    [ io:format("~w ~n~n",[ets:tab2list(list_to_atom("lane"++[48+B]))]) || B<- lists:seq(1,4) ],
-%	    io:format("~n~n~n"),
+	    [ io:format("~w ~n~n",[ets:tab2list(list_to_atom("lane"++[48+B]))]) || B<- lists:seq(1,?NUM_LANES) ],
+	    io:format("~n~n~n"),
 	    
 	    control()  % Will go and pull out the list of RVs again and start over.
     end.
@@ -365,81 +365,156 @@ relocateByX(_Lane,_,0,_CurrentCar) ->
     ok;
 
 %% Most recursions will end up here
+%% relocateByX(Lane,NumOfCarsInLane,M,CurrentCar) ->
+%%     Next = ets:next(list_to_atom("lane"++[48+Lane]),CurrentCar),
+    
+%%     {A,_B,C,D,E,F,G} = findVehicleByKey(CurrentCar,Lane),
+%%     {ProposedX,ProposedSpeed,ProposedSlot} = giveNewX(A,G,E,F),
+    
+%%     Prev = ets:prev(list_to_atom("lane"++[48+Lane]),A), % This is the car ahead of us
+%%     NewPrev = case Prev of
+%% 		  '$end_of_table' -> 
+%% 		      case ProposedX>A of
+%% 			  true -> % We have done a modulu
+%% 			      ets:last(list_to_atom("lane"++[48+Lane])); % Assign left-most car to NewPrev
+%% 			  false -> % No modulu.
+%% 			      -1 % -1 means we will never crash. We don't care about the next car in the list. (Bypass flag)
+%% 		      end;
+%% 		  _ -> 
+%% 		      Prev % Assign previous to NewPrev - meaning there is a car ahead of us
+%% 	      end,
+%%     case NumOfCarsInLane<2 of
+%% 	true -> 
+%% 	    % Special case: We are the only car on the road. Assign new location and exit this method.
+%% 	    io:format("lone~n"),
+%% 	    ets:delete(list_to_atom("lane"++[48+Lane]),A),
+%% 	    ets:insert(list_to_atom("lane"++[48+Lane]),{ProposedX,Lane,C,D,E,ProposedSlot,ProposedSpeed});	    
+%% 	false -> 
+%% 	    % More than one car on the road - check for crashes
+%% 	    if
+%% 		ProposedX =< NewPrev -> % We overtook a car regularly without a modulu operation
+
+%% 		    %% NewX = case NewPrev+1 > ?ROADLEN of % Check if the modulu operation allows us to enter at this location
+%% 		    %% 	       true -> 0; % Enter one before NewPrev
+%% 		    %% 	       false -> NewPrev+1
+%% 		    %% 	   end,
+%% 		    NewX = NewPrev+1,
+%% 		    NewSpeed = ?BRAKING_SPEED,
+%% 		    NewSlot = ?MAX_BRAKING_TIMESLOTS,
+%% 		    ets:delete(list_to_atom("lane"++[48+Lane]),A),
+%% 		    io:format("overtook car~n"),
+%% 		    case doesPosExist(NewX,Lane) of
+%% 			true -> io:format("Fuuuuuuck1~n");
+%% 			false -> ok
+%% 		    end,
+%% 		    ets:insert(list_to_atom("lane"++[48+Lane]),{NewX,Lane,C,D,E,NewSlot,NewSpeed});
+%% 		NewPrev == -1 ->
+%% 		    %% Special case for car is at the head of then road and no modulu operation to be performed (bypass flag)
+%% 		    io:format("car at head of road no modulu(-1) ~n"),
+%% 		    ets:delete(list_to_atom("lane"++[48+Lane]),A),
+%% 		    case doesPosExist(ProposedX,Lane) of
+%% 			true -> NewX = ProposedX+1,
+%% 				io:format("Fuuuuuuck3~n");
+%% 			false -> NewX=ProposedX
+%% 		    end,
+%% 		    ets:insert(list_to_atom("lane"++[48+Lane]),{NewX,Lane,C,D,E,ProposedSlot,ProposedSpeed});
+
+%% 		% Else: (ProposedX>NewPrev) and not the last vehicle on the road. We need to check if there was a car ahead of us before modulu
+%% 		% Either a modulu crash or there wasn't a crash at all
+%% 		true ->
+%% 		    case ProposedX > A of % Modulu for sure
+%% 			true -> 
+%% 			    WereWeLast = ets:prev(list_to_atom("lane"++[48+Lane]),A),
+%% 			    case WereWeLast of
+%% 				'$end_of_table' -> 
+%% 				    % We were last.
+%% 				    % Collision fo sho
+%% 				    % Stand one behind him
+%% 				    ok;
+%% 				_ -> 
+%% 				    % We weren't last on the road
+				    
+%% 				    ok
+%% 			    end;
+%% 			false -> ok
+%% 		    end
+%% 	    end,
+%% 	    relocateByX(Lane,NumOfCarsInLane,M-1,Next)
+%%     end.
+
 relocateByX(Lane,NumOfCarsInLane,M,CurrentCar) ->
     Next = ets:next(list_to_atom("lane"++[48+Lane]),CurrentCar),
-
+    
     {A,_B,C,D,E,F,G} = findVehicleByKey(CurrentCar,Lane),
     {ProposedX,ProposedSpeed,ProposedSlot} = giveNewX(A,G,E,F),
-
+    
     Prev = ets:prev(list_to_atom("lane"++[48+Lane]),A), % This is the car ahead of us
     NewPrev = case Prev of
-	'$end_of_table' -> 
-		      case ProposedX>A of
-			  true -> % We have done a modulu
-			      ets:last(list_to_atom("lane"++[48+Lane])); % Assign left-most car to NewPrev
-			  false -> % No modulu.
-			      -1 % -1 means we will never crash :S
-		      end;
+		  '$end_of_table' -> 
+		      ets:last(list_to_atom("lane"++[48+Lane])); % Assign left-most car to NewPrev
 		  _ -> 
-		      Prev % Assign previous to NewPrev
-    end,
+		      Prev % Assign previous to NewPrev - meaning there is a car ahead of us
+	      end,
     case NumOfCarsInLane<2 of
 	true -> 
-	    % We are the only car on the road. Assign new location and exit this method.
+	    % Special case: We are the only car on the road. Assign new location and exit this method.
+	    io:format("lone~n"),
 	    ets:delete(list_to_atom("lane"++[48+Lane]),A),
 	    ets:insert(list_to_atom("lane"++[48+Lane]),{ProposedX,Lane,C,D,E,ProposedSlot,ProposedSpeed});	    
 	false -> 
-	    % More than one car on the road - check for crashes
-	    if
-		ProposedX =< NewPrev -> % We overtook a car (crashed)
-		    NewX = case NewPrev+1 > ?ROADLEN of % Check if the modulu operation allows us to enter at this location
-			       true -> 0; % Enter one before NewPrev
-			       false -> NewPrev+1
-			   end,
-		    NewSpeed = ?BRAKING_SPEED,
-		    NewSlot = ?MAX_BRAKING_TIMESLOTS,
-		    ets:delete(list_to_atom("lane"++[48+Lane]),A),
-						%	    io:format("Y~w: Curr: ~w->~w | Prev: ~w ~n",[Lane,A,NewX,NewPrev]),
-		    case doesPosExist(NewX,Lane) of
-			true -> io:format("Fuuuuuuck1~n");
-			false -> ok
-		    end,
-		    ets:insert(list_to_atom("lane"++[48+Lane]),{NewX,Lane,C,D,E,NewSlot,NewSpeed});
-		NewPrev == -1 ->
-		    %% Special case for car is at the head of then road and no modulu operation to be performed
-		    ets:delete(list_to_atom("lane"++[48+Lane]),A),
-		    case doesPosExist(ProposedX,Lane) of
-			true -> NewX = ProposedX+1,
-				io:format("Fuuuuuuck3~n");
-			false -> NewX=ProposedX
-		    end,
-		    ets:insert(list_to_atom("lane"++[48+Lane]),{NewX,Lane,C,D,E,ProposedSlot,ProposedSpeed});
-
-		% Else: (PropoxedX>NewPrev) and not the last vehicle on the road
-		true ->
-		    %% We want to check if we modulu'd or not
-		    case ProposedX>A of
-			true -> % We have modulu'd
- 			        % And we are not the last on the road, so we have crashed fo-sho
-
+	    % Check for modulu
+	    case ProposedX > A of
+		true -> % Modulu
+		    case Prev of
+			'$end_of_table' -> % We were last on the road
+			    % Check with NewPrev if we crashed or not
+			    % Newprev is the car we need to check against
+			    case ProposedX =< NewPrev of
+				true -> % Crashed
+				    NewSpeed = ?BRAKING_SPEED,
+				    NewSlot = ?MAX_BRAKING_TIMESLOTS,
+				    ets:delete(list_to_atom("lane"++[48+Lane]),A),
+				    case doesPosExist(NewPrev+1 ,Lane) of
+					true ->
+					    io:format("Fuuuuuuck3~n"),
+					    NewX = 0;
+					false -> 
+					    NewX = NewPrev+1						 
+				    end,
+				    ets:insert(list_to_atom("lane"++[48+Lane]),{NewX,Lane,C,D,E,NewSlot,NewSpeed});
+				false -> % Relocate
+				    ets:delete(list_to_atom("lane"++[48+Lane]),A),
+				    ets:insert(list_to_atom("lane"++[48+Lane]),{ProposedX,Lane,C,D,E,ProposedSlot,ProposedSpeed})
+				end;
+			_ -> % We weren't first. Crashed fo sho.
+			    NewX = NewPrev+1,
 			    NewSpeed = ?BRAKING_SPEED,
 			    NewSlot = ?MAX_BRAKING_TIMESLOTS,
 			    ets:delete(list_to_atom("lane"++[48+Lane]),A),
-
-			    case doesPosExist(NewPrev+1,Lane) of
-				true -> io:format("Fuuuuuuck4~n");
+			    case doesPosExist(NewX,Lane) of
+				true -> 
+				    io:format("Fuuuuuuck2~n");
+				false ->
+				    ok
+			    end,
+			    ets:insert(list_to_atom("lane"++[48+Lane]),{NewX,Lane,C,D,E,NewSlot,NewSpeed})
+		    end;
+		false -> % No Modulu
+		    % Check if we crashed
+		    case ((ProposedX =< NewPrev) and (A > NewPrev)) of
+			true -> % We crashed
+			    NewX = NewPrev+1,
+			    NewSpeed = ?BRAKING_SPEED,
+			    NewSlot = ?MAX_BRAKING_TIMESLOTS,
+			    ets:delete(list_to_atom("lane"++[48+Lane]),A),
+			    case doesPosExist(NewX,Lane) of
+				true -> io:format("Fuuuuuuck1~n");
 				false -> ok
 			    end,
-			    ets:insert(list_to_atom("lane"++[48+Lane]),{NewPrev+1,Lane,C,D,E,NewSlot,NewSpeed});
-
-			false -> % No modulu
+			    ets:insert(list_to_atom("lane"++[48+Lane]),{NewX,Lane,C,D,E,NewSlot,NewSpeed});
+			false -> % No crash
 			    ets:delete(list_to_atom("lane"++[48+Lane]),A),
-			    case doesPosExist(ProposedX,Lane) of
-				true -> NewX = ProposedX+1,
-					io:format("Fuuuuuuck2~n");
-				false -> NewX=ProposedX
-			    end,
-			    ets:insert(list_to_atom("lane"++[48+Lane]),{NewX,Lane,C,D,E,ProposedSlot,ProposedSpeed})
+			    ets:insert(list_to_atom("lane"++[48+Lane]),{ProposedX,Lane,C,D,E,ProposedSlot,ProposedSpeed})
 		    end
 	    end,
 	    relocateByX(Lane,NumOfCarsInLane,M-1,Next)
