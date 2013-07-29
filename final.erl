@@ -2,10 +2,10 @@
 -compile(export_all).
 
 -define(RV_RANGE,500).
--define(ROADLEN,1600).
--define(NUM_LANES,4).
+-define(ROADLEN,6600).
+-define(NUM_LANES,6).
 -define(CRAZY_PROB,0.2).
--define(LANE_PROB,0.00).
+-define(LANE_PROB,0.05).
 -define(MAX_BRAKING_TIMESLOTS,5).
 -define(BRAKING_SPEED,50).
 
@@ -224,14 +224,14 @@ control(ListOfRVs) ->
 	    TheList = lists:flatten([ gibLane(B,IsRight) || B <- lists:seq(1,?NUM_LANES) ]),
 	    Pid ! {display_response,TheList},
 	    control(ListOfRVs)
-    after 300 -> % Relocate vehicles
+    after 750 -> % Relocate vehicles
 	    [ relocateVehiclesInLaneByX(Id) || Id <- lists:seq(1,?NUM_LANES) ], % Move X
 	    [ relocateVehiclesInLaneByY(Id) || Id <- lists:seq(1,?NUM_LANES) ], % Move Y
 	    [ updateALanesYValues(Id) || Id <- lists:seq(1,?NUM_LANES) ], % Update lane Y values
 	    [ sendUpdatesToLane(list_to_atom("lane"++[48+Id]),ets:first(list_to_atom("lane"++[48+Id]))) || Id <- lists:seq(1,?NUM_LANES) ], % Send messages to cars
 %	    io:format("~nSizes:~n"),
-	    [ io:format("~w ~n~n",[ets:tab2list(list_to_atom("lane"++[48+B]))]) || B<- lists:seq(1,?NUM_LANES) ],
-	    io:format("~n~n~n"),
+%	    [ io:format("~w ~n~n",[ets:tab2list(list_to_atom("lane"++[48+B]))]) || B<- lists:seq(1,?NUM_LANES) ],
+%	    io:format("~n~n~n"),
 	    
 	    control()  % Will go and pull out the list of RVs again and start over.
     end.
@@ -458,7 +458,6 @@ relocateByX(Lane,NumOfCarsInLane,M,CurrentCar) ->
     case NumOfCarsInLane<2 of
 	true -> 
 	    % Special case: We are the only car on the road. Assign new location and exit this method.
-	    io:format("lone~n"),
 	    ets:delete(list_to_atom("lane"++[48+Lane]),A),
 	    ets:insert(list_to_atom("lane"++[48+Lane]),{ProposedX,Lane,C,D,E,ProposedSlot,ProposedSpeed});	    
 	false -> 

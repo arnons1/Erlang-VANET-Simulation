@@ -6,8 +6,8 @@
 -define(SCREEN_Y,(600)).
 -define(INTERLANE_OFFSET,(10)).
 -define(SCREEN_OFFSET,(30)).
--define(REFRESH_PERIOD,(1000)). % in MS
--define(ROAD_LEN,1600).
+-define(REFRESH_PERIOD,(1500)). % in MS
+-define(ROAD_LEN,6600).
 -define(RV_RANGE,500).
 
 spawn_slave(Node) ->
@@ -30,7 +30,12 @@ start(ControlPid,OtherPid,true,NumOfLanes) ->
 main(ControlPid, IsRight, NumOfLanes)	->
     ets:new(cardb,[named_table,set,public]),
     Wx = wx:new(),
-    Frame = wxFrame:new(Wx, -1, "Vehicles! HOLY CRAP", [{size, {?SCREEN_X, ?SCREEN_Y}},{pos,{20,20}}]),
+	IsRightWords = case IsRight of
+						true -> "Right ->";
+						false -> "<- Left"
+	end,
+	Title=io_lib:fwrite("Erlang Project: VANET - ~s", [IsRightWords]),
+    Frame = wxFrame:new(Wx, -1, Title, [{size, {?SCREEN_X, ?SCREEN_Y}},{pos,{20,20}}]),
     Panel = wxPanel:new(Frame),
     wxPanel:connect(Panel, left_down),
     OnPaint = fun(_Evt, _Obj) ->
@@ -142,8 +147,7 @@ loop(Frame,Panel,ControlPid,IsRight,NumOfLanes,Middles) ->
 	{click,_Mx,_My} -> % Only for mouse click events
 	    loop(Frame,Panel,ControlPid,IsRight,NumOfLanes,Middles);
 	{display_response,TheList} -> % Response from the control unit
-	    ets:delete_all_objects(cardb),
-	    io:format("Got this list for IsRight ~w: ~n~n~w~n:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::~n",[IsRight,TheList]),
+		ets:delete_all_objects(cardb),
 	    parseControlListAndDrawCars(TheList,IsRight,Middles,Panel),
 	    loop(Frame,Panel,ControlPid,IsRight,NumOfLanes,Middles)
     after ?REFRESH_PERIOD ->
@@ -181,11 +185,15 @@ checkForCarInPos(X,Y) ->
     
 
 meterToPixel(Meters,IsRight) -> %% Converts meters to pixels depending on the right/left screen and road length
-    AbsoluteX = ?ROAD_LEN - Meters,
-    PreResult = AbsoluteX * (2*?SCREEN_X div ?ROAD_LEN),
+    %io:format("Transfer ~wm into p: ",[Meters]),
+	AbsoluteX = ?ROAD_LEN - Meters,
+    PreResult = erlang:trunc(AbsoluteX * (2*?SCREEN_X / ?ROAD_LEN)),
+	
     case IsRight of
-	true -> PreResult - ?SCREEN_X;
+	true -> %io:format("~w~n~n",[PreResult-?SCREEN_X]),
+		PreResult - ?SCREEN_X;
 	false -> 
+	%	io:format("~w~n~n",[PreResult]),
 	    PreResult
     end.
 
