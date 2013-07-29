@@ -230,14 +230,14 @@ control(ListOfRVs) ->
 	    [ updateALanesYValues(Id) || Id <- lists:seq(1,?NUM_LANES) ], % Update lane Y values
 	    [ sendUpdatesToLane(list_to_atom("lane"++[48+Id]),ets:first(list_to_atom("lane"++[48+Id]))) || Id <- lists:seq(1,?NUM_LANES) ], % Send messages to cars
 %	    io:format("~nSizes:~n"),
-%	    [ io:format("~w  | ",[lists:nth(6,ets:info(list_to_atom("lane"++[48+B])))]) || B<- lists:seq(1,4) ],
-	    
+%	    [ io:format("~w ~n~n",[ets:tab2list(list_to_atom("lane"++[48+B]))]) || B<- lists:seq(1,4) ],
+%	    io:format("~n~n~n"),
 	    
 	    control()  % Will go and pull out the list of RVs again and start over.
     end.
 
 gibLane(B,IsRight) ->
-    Threshold = ?ROADLEN/2,
+    Threshold = ?ROADLEN div 2,
     case IsRight of
 	true ->  
 	    Res = ets:select(list_to_atom("lane"++[48+B]),[{ {'$1','$2','$3','$4','$5','$6','$7'}, [ {'<','$1', Threshold}], ['$$']}]);

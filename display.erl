@@ -109,7 +109,6 @@ loop(Frame,Panel,ControlPid,IsRight,NumOfLanes,Middles) ->
 		    loop(Frame,Panel,ControlPid,IsRight,NumOfLanes,Middles)
 	    end;
 	{draw_range,Xpos} -> 
-	    io:format("Gonna put a rect~n"),
 	    OnPaint2 = fun(_Evt, _Obj) ->
 			       Paint = wxPaintDC:new(Panel),
 			       Pen = wxPen:new(),
@@ -162,7 +161,6 @@ checkForCarInPos(X,Y) ->
 				 {'andalso',{'=<','$2',Y+20},
 				  {'>=','$2',Y-20}}}}],
 			     [{{'$1','$2','$3','$4','$5','$6','$7'}}]}]),
-    io:format("Found ~w~n~n~n",[Res]),
     Res.
     
 
@@ -234,7 +232,7 @@ draw_range(Panel,Xpos,IsRight) ->
     wxPen:setStyle(Pen,?wxSOLID),
     wxPen:setColour(Pen, ?wxRED),
     wxDC:setPen(Paint,Pen),
-    wxDC:drawRectangle(Paint,{Xpos-(meterToPixel(?RV_RANGE,IsRight) div 2),?SCREEN_OFFSET},{meterToPixel(?RV_RANGE,IsRight),?SCREEN_Y-60}),  % Draw rectangle around the RV
+    wxDC:drawRectangle(Paint,{Xpos-(meterToPixel(?RV_RANGE,IsRight) div 2),?SCREEN_OFFSET-10},{meterToPixel(?RV_RANGE,IsRight),?SCREEN_Y-80}),  % Draw rectangle around the RV
     wxPen:destroy(Pen),
     wxPaintDC:destroy(Paint).
 
