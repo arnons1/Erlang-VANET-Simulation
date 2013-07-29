@@ -10,8 +10,24 @@
 -define(ROAD_LEN,1600).
 -define(RV_RANGE,500).
 
-%% Creeates the window and menus etc.
-start(ControlPid, IsRight, NumOfLanes)	->
+spawn_slave(Node) ->
+    spawn(Node,?MODULE,start,[]).
+
+spawn_master(ControlPid, Node, NumOfLanes, SlavePid) ->
+    spawn(Node,?MODULE,start,[ControlPid,SlavePid,true,NumOfLanes]).
+
+start() ->
+    receive
+	{init,ControlPid, NumOfLanes, IsRight} ->
+	    main(ControlPid,IsRight,NumOfLanes)
+    end.
+
+start(ControlPid,OtherPid,true,NumOfLanes) ->
+    OtherPid ! {init,ControlPid, NumOfLanes, false},
+    main(ControlPid,true,NumOfLanes).
+
+%% Creates the window and menus etc.
+main(ControlPid, IsRight, NumOfLanes)	->
     ets:new(cardb,[named_table,set,public]),
     Wx = wx:new(),
     Frame = wxFrame:new(Wx, -1, "Vehicles! HOLY CRAP", [{size, {?SCREEN_X, ?SCREEN_Y}},{pos,{20,20}}]),
