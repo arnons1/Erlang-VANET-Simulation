@@ -78,7 +78,6 @@ loop(Frame,Panel,ControlPid,IsRight,NumOfLanes,Middles) ->
 		    loop(Frame,Panel,ControlPid,IsRight,NumOfLanes,Middles)
 	    end;
 	{_,X,_,_,_}-> % X is message code. Z is used for the mouse clicks
-	    io:fwrite("~p ~n", [X]),
 	    case X of
 		500 ->
 		    exit(1);
@@ -144,6 +143,7 @@ loop(Frame,Panel,ControlPid,IsRight,NumOfLanes,Middles) ->
 	    loop(Frame,Panel,ControlPid,IsRight,NumOfLanes,Middles);
 	{display_response,TheList} -> % Response from the control unit
 	    ets:delete_all_objects(cardb),
+	    io:format("Got this list for IsRight ~w: ~n~n~w~n~:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::~n",[IsRight,TheList]),
 	    parseControlListAndDrawCars(TheList,IsRight,Middles,Panel),
 	    loop(Frame,Panel,ControlPid,IsRight,NumOfLanes,Middles)
     after ?REFRESH_PERIOD ->
