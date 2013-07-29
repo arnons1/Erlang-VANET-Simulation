@@ -8,9 +8,11 @@
 -define(SCREEN_OFFSET,(30)).
 -define(REFRESH_PERIOD,(1000)). % in MS
 -define(ROAD_LEN,1600).
+-define(RV_RANGE,500).
 
 %% Creeates the window and menus etc.
 start(ControlPid, IsRight, NumOfLanes)	->
+    ets:new(cardb,[named_table,set,public]),
     Wx = wx:new(),
     Frame = wxFrame:new(Wx, -1, "Vehicles! HOLY CRAP", [{size, {?SCREEN_X, ?SCREEN_Y}},{pos,{20,20}}]),
     Panel = wxPanel:new(Frame),
@@ -47,6 +49,18 @@ start(ControlPid, IsRight, NumOfLanes)	->
 %% Handles all the menu bar commands
 loop(Frame,Panel,ControlPid,IsRight,NumOfLanes,Middles) -> 
     receive 
+	#wx{event = #wxMouse{type = left_down, x = X, y = Y}} ->
+	    Res = checkForCarInPos(X,Y),
+	    case length(Res)>0 of
+		true ->	
+		    {A,B,C,D,E,F,G} = hd(Res),
+		    Message = io_lib:fwrite("Car PID: ~w~nCrazy: ~w~nIs it an RV? ~w~nBraking timeslots left: ~w~nSpeed: ~w", [C,E,D,F,G]),
+		    Modal = wxMessageDialog:new (Panel, Message),
+		    wxMessageDialog:showModal(Modal),
+		    loop(Frame,Panel,ControlPid,IsRight,NumOfLanes,Middles);
+		false ->    
+		    loop(Frame,Panel,ControlPid,IsRight,NumOfLanes,Middles)
+	    end;
 	{_,X,_,_,_}-> % X is message code. Z is used for the mouse clicks
 	    io:fwrite("~p ~n", [X]),
 	    case X of
@@ -73,37 +87,12 @@ loop(Frame,Panel,ControlPid,IsRight,NumOfLanes,Middles) ->
 		    LaneWidth = ((?SCREEN_Y-60 - ?SCREEN_OFFSET) div (NumOfLanes))-?INTERLANE_OFFSET, % Gives effective lane size
 		    NewMiddles = [ getMiddle(?SCREEN_OFFSET + (I-1)*LaneWidth + (I-1)*?INTERLANE_OFFSET, LaneWidth) || I <- lists:seq(1,NumOfLanes) ],
 		    wxFrame:connect(NewPanel, paint, [{callback, OnPaint1}]),
+		    wxPanel:connect(NewPanel, left_down),
 		    Image = wxImage:new("bcn.bmp", []),
 		    Bitmap = wxBitmap:new(Image),
 		    StaticBitmap = wxStaticBitmap:new(NewPanel, 1, Bitmap,[{size,{28,28}},{pos,{(?SCREEN_X) div 2,0}}]),
 		    wxFrame:update(Frame),
 		    wxFrame:refresh(Frame),
-		    wxWindow:setSize(Frame,{?SCREEN_X+1,?SCREEN_Y+1}),
-		    wxWindow:setSize(Frame,{?SCREEN_X,?SCREEN_Y}),
-		    loop(Frame,NewPanel,ControlPid,IsRight,NumOfLanes,NewMiddles);
-		%% Draw a circle
-		350 ->
-		    wxPanel:destroy(Panel),
-		    NewPanel = wxPanel:new(Frame),
-		    wxFrame:update(Frame),
-		    wxFrame:refresh(Frame),
-		    OnPaint1 = fun(_Evt, _Obj) ->
-					   Paint = wxPaintDC:new(NewPanel),
-					   Brush = wxBrush:new(),
-					   wxBrush:setColour(Brush, ?wxBLACK),
-					   wxDC:setBrush(Paint,Brush),
-					   LaneWidth = ((?SCREEN_Y-60 - ?SCREEN_OFFSET) div (NumOfLanes))-?INTERLANE_OFFSET, % Gives effective lane size
-					   [ draw_rectangle(NewPanel,Paint,Brush,0,?SCREEN_OFFSET + (I-1)*LaneWidth + (I-1)*?INTERLANE_OFFSET, LaneWidth) || I <- lists:seq(1,NumOfLanes) ],
-					   wxBrush:destroy(Brush),
-					   wxPaintDC:destroy(Paint)
-				   end,
-		    wxFrame:connect(NewPanel, paint, [{callback, OnPaint1}]),
-		    Image = wxImage:new("bcn.bmp", []),
-		    Bitmap = wxBitmap:new(Image),
-		    StaticBitmap = wxStaticBitmap:new(NewPanel, 1, Bitmap,[{size,{28,28}},{pos,{(?SCREEN_X) div 2,0}}]),
-		    LaneWidth = ((?SCREEN_Y-60 - ?SCREEN_OFFSET) div (NumOfLanes))-?INTERLANE_OFFSET, % Gives effective lane size
-		    NewMiddles = [ getMiddle(?SCREEN_OFFSET + (I-1)*LaneWidth + (I-1)*?INTERLANE_OFFSET, LaneWidth) || I <- lists:seq(1,NumOfLanes) ],
-		    [ putCar(NewPanel,random:uniform(?SCREEN_X),random:uniform(?SCREEN_Y),rv) || _ <- lists:seq(1,20) ],
 		    wxWindow:setSize(Frame,{?SCREEN_X+1,?SCREEN_Y+1}),
 		    wxWindow:setSize(Frame,{?SCREEN_X,?SCREEN_Y}),
 		    loop(Frame,NewPanel,ControlPid,IsRight,NumOfLanes,NewMiddles);
@@ -119,25 +108,40 @@ loop(Frame,Panel,ControlPid,IsRight,NumOfLanes,Middles) ->
 		_ -> 
 		    loop(Frame,Panel,ControlPid,IsRight,NumOfLanes,Middles)
 	    end;
+	{draw_range,Xpos} -> 
+	    io:format("Gonna put a rect~n"),
+	    OnPaint2 = fun(_Evt, _Obj) ->
+			       Paint = wxPaintDC:new(Panel),
+			       Pen = wxPen:new(),
+			       wxPen:setStyle(Pen,?wxSOLID),
+			       wxPen:setColour(Pen, ?wxRED),
+			       wxDC:setPen(Paint,Pen),
+			       % Draw rectangle around the RV
+			       wxDC:drawRectangle(Paint,{Xpos-(meterToPixel(?RV_RANGE,IsRight) div 2),?SCREEN_OFFSET},{meterToPixel(?RV_RANGE,IsRight),?SCREEN_Y-60}),
+
+			       wxPen:destroy(Pen),
+			       wxPaintDC:destroy(Paint)
+		       end,
+	    wxFrame:connect(Panel, paint, [{callback, OnPaint2}]),
+	    loop(Frame,Panel,ControlPid,IsRight,NumOfLanes,Middles);
+	
 	{click,_Mx,_My} -> % Only for mouse click events
 	    loop(Frame,Panel,ControlPid,IsRight,NumOfLanes,Middles);
 	{display_response,TheList} -> % Response from the control unit
-    	    io:format("TheList:~w~n",[TheList]),
+	    ets:delete_all_objects(cardb),
 	    parseControlListAndDrawCars(TheList,IsRight,Middles,Panel),
 	    loop(Frame,Panel,ControlPid,IsRight,NumOfLanes,Middles)
     after ?REFRESH_PERIOD ->
 	    self() ! {0,300,0,0,0},
 	    ControlPid ! {display_request,self(),IsRight}, % Ask the control for some fresh information
-	    io:format("Sent req.~n"),
 	    loop(Frame,Panel,ControlPid,IsRight,NumOfLanes,Middles)
     end.
 
 parseControlListAndDrawCars([],_,_,_) ->
-    io:format("ParseControl finished~n~n"),
     ok;
 parseControlListAndDrawCars([H|T],IsRight,Middles,Panel) ->
-    io:format("ParseControl got ~w~n",[H]),
-    {X,Y,Pid,IsRV,_IsCrazy,Timeslot,_Speed} = H,
+    {X,Y,Pid,IsRV,IsCrazy,Timeslot,Speed} = H,
+    ets:insert(cardb,{meterToPixel(X,IsRight),lists:nth(Y,Middles),Pid,IsRV,IsCrazy,Timeslot,Speed}),
     Type = case IsRV of
 	true -> rv;
 	false ->
@@ -148,9 +152,19 @@ parseControlListAndDrawCars([H|T],IsRight,Middles,Panel) ->
 		    checkRange(Pid)
 	    end
     end,
-    io:format("Putting a ~w at ~w ~w~n",[Type,meterToPixel(X,IsRight),lists:nth(Y,Middles)]),
-    putCar(Panel,meterToPixel(X,IsRight),lists:nth(Y,Middles),Type),
+    putCar(Panel,meterToPixel(X,IsRight),lists:nth(Y,Middles),Type,IsRight),
     parseControlListAndDrawCars(T,IsRight,Middles,Panel).
+
+checkForCarInPos(X,Y) ->
+    Res = ets:select(cardb,[{{'$1','$2','$3','$4','$5','$6','$7'},
+			      [{'andalso',{'=<','$1',X+35},
+				{'andalso',{'>=','$1',X-35},
+				 {'andalso',{'=<','$2',Y+20},
+				  {'>=','$2',Y-20}}}}],
+			     [{{'$1','$2','$3','$4','$5','$6','$7'}}]}]),
+    io:format("Found ~w~n~n~n",[Res]),
+    Res.
+    
 
 meterToPixel(Meters,IsRight) -> %% Converts meters to pixels depending on the right/left screen and road length
     AbsoluteX = ?ROAD_LEN - Meters,
@@ -162,18 +176,16 @@ meterToPixel(Meters,IsRight) -> %% Converts meters to pixels depending on the ri
     end.
 
 checkRange(Pid) ->
-    io:format("Gonna ask for range~n"),
     Pid ! {av_are_you_in_range, self()},
     receive
 	{av_range_response,_,Response} ->
-	    io:format("Got range ~w~n",[Response]),
 	    case Response of
 		true -> av_reg;
 		false -> av_outofrange
 	    end
     end.
 
-putCar(Panel,X,Y,Type) -> % Puts a car.
+putCar(Panel,X,Y,Type,IsRight) -> % Puts a car.
     File = case Type of
 	       av_reg -> "av_inrange_100_49.bmp";
 	       av_braking -> "av_braking_100_49.bmp";
@@ -183,7 +195,13 @@ putCar(Panel,X,Y,Type) -> % Puts a car.
 	   end,
     Image = wxImage:new(File, []),
     Bitmap = wxBitmap:new(Image),
-    StaticBitmap = wxStaticBitmap:new(Panel, 1, Bitmap,[{size,{100,49}},{pos,{X,Y}}]).
+    StaticBitmap = wxStaticBitmap:new(Panel, 1, Bitmap,[{size,{40,20}},{pos,{X,Y-10}}]),
+    case Type of
+	rv -> self() ! {draw_range,X},
+	    draw_range(Panel,X,IsRight),
+	    draw_circle(Panel,X,30,30);
+	_ -> ok
+    end.
 
 %% Draw a line	
 draw_line(Panel,Dot1,Dot2)       ->
@@ -207,9 +225,18 @@ draw_circle(Panel,X,Y,Radius)    ->
     {X,Y,Radius}.
 
 %% Draw a square
-draw_rectangle(Panel,Paint,Brush,X,Y,LaneWidth)        ->
+draw_rectangle(_Panel,Paint,_Brush,X,Y,LaneWidth)        ->
     wxDC:drawRectangle(Paint,{X,Y},{?SCREEN_X,LaneWidth}).  % Draw square.
 
+draw_range(Panel,Xpos,IsRight) ->
+    Paint = wxPaintDC:new(Panel),
+    Pen = wxPen:new(),
+    wxPen:setStyle(Pen,?wxSOLID),
+    wxPen:setColour(Pen, ?wxRED),
+    wxDC:setPen(Paint,Pen),
+    wxDC:drawRectangle(Paint,{Xpos-(meterToPixel(?RV_RANGE,IsRight) div 2),?SCREEN_OFFSET},{meterToPixel(?RV_RANGE,IsRight),?SCREEN_Y-60}),  % Draw rectangle around the RV
+    wxPen:destroy(Pen),
+    wxPaintDC:destroy(Paint).
 
 getMiddle(Y,LaneWidth) ->
     Y+(LaneWidth div 2).
